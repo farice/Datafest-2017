@@ -30,6 +30,12 @@ library(glmnet)
 library(doParallel)
 library(zoo)
 library(RcppRoll)
+library(readr)
+library(data.table)
+library(pryr)
+library(microbenchmark)
+library(rbenchmark)
+
 registerDoParallel(detectCores()-1)
 detectCores()
 options(rf.cores = detectCores() -1, mc.cores = detectCores() - 1)
@@ -90,10 +96,7 @@ ui <- shinyUI(fluidPage(theme = shinytheme("cosmo"),
                         sidebarLayout(
                           sidebarPanel(
                             # adding the new div tag to the sidebar            
-                            
-                            #Selector for file upload
-                            fileInput('csv_input', 'Choose CSV file',
-                                      accept=c('text/csv', 'text/comma-separated-values,text/plain')),
+                          
                             selectInput("dataset", "Choose to load a backup. If you've just uploaded a file select the option below:", choices = c("Uploaded CSV" 
                                                                                                                                                    #                                                                                                           ,"Backup (Inactive)"
                             )),
@@ -210,21 +213,7 @@ ui <- shinyUI(fluidPage(theme = shinytheme("cosmo"),
                               )
                             }),
                             numericInput("obs", "Number of rows to view:", 3),
-                            uiOutput("choose_columns"),
-                            
-                            withTags({
-                              div(class="header", checked=NA,
-                                  h3("Additional Covariates")
-                              )
-                            }),
-                            
-                            fileInput('add_input', 'Choose a CSV file formatted in accord with the documentation.', multiple = FALSE, 
-                                      accept=c('text/csv', 'text/comma-separated-values,text/plain')),
-                            uiOutput("choose_clinic"),
-                            uiOutput("choose_week"),
-                            selectInput('add_date_format', "Date format in add. CSV:", c("mm/dd/yyyy" = "%m/%d/%Y",
-                                                                                         "mm/dd/yy" = "%m/%d/%y",
-                                                                                         "mm-dd-yyyy" = "%m-%d-%Y", "mm-dd-yy" = "%m-%d-%y"))
+                            uiOutput("choose_columns")
                           ),
                           
                           
@@ -271,17 +260,6 @@ ui <- shinyUI(fluidPage(theme = shinytheme("cosmo"),
                               tabPanel("Summary",verbatimTextOutput("summary")),
                               tabPanel("View", tableOutput("view")),
                               tabPanel("Structure", verbatimTextOutput("str"))
-                            ),
-                            
-                            withTags({
-                              div(class="header", checked=NA,
-                                  h3("Additional Data")
-                              )
-                            }),
-                            tabsetPanel(
-                              tabPanel("Details",verbatimTextOutput("add_summary"), verbatimTextOutput("add_str")),
-                              tabPanel("Processed",verbatimTextOutput("add_proc"))
-                              
                             )
                           )
                           
@@ -300,98 +278,14 @@ server <- shinyServer(function(input, output) {
   
   #This function is repsonsible for loading in the selected file
   salesdata <- reactive({
-    infile <- input$csv_input
-    
-    shiny::validate(
-      need(input$csv_input != "", "Please upload your sales CSV (Kits Received).")
-    )
+    infile <- data_sub 
     
     
-    
-    switch(input$dataset, 
-           #recover previously uploaded backup
-           "backup" = NULL,
-           
-           # select uploaded CSV file for processing
-           "Uploaded CSV" = 
-             if (is.null(infile)) {
-               return(NULL)
-             }
-           else{
-             # show progress for length process of reading in uploaded CSV file
-             withProgress( message = "CONVERTING CSV...", value = 0, {
-               read.csv(infile$datapath, header = T, sep = ',')
-               # dummy variable, new file was uploaded
-             })
-           })
-    #endswitch
     
   })
   
-  add_data <- reactive({
-    in_file <- input$add_input
-    
-    shiny::validate(
-      need(input$add_input != "", "Please upload an additional CSV, following the guidelines described in the documentation.")
-    )
-    
-    
-    if (is.null(in_file)) {
-      return(NULL)
-    }
-    else{
-      # show progress for length process of reading in uploaded CSV file
-      withProgress( message = "CONVERTING CSV...", value = 0, {
-        read.csv(in_file$datapath, header = T, sep = ',')
-        # dummy variable, new file was uploaded
-      })
-    }
-    
-  })
+
   
-  add_data_processed <- reactive({
-    shiny::validate(
-      need(input$add_date != "", "Please select the column that corresponds to date.")
-    )
-    
-    shiny::validate(
-      need(input$add_clinic != "", "Please select the column that corresponds to LIMS ID.")
-    )
-    
-    df <- add_data()
-    # convert clinic id to numeric
-    withProgress( message = 'Processing Additional Data', value = 0, {
-      
-      incProgress(0.1, detail = "Rendering types")
-      clinic_identifier <- input$add_clinic
-      
-      date_identifier <- input$add_date
-      
-      cat(file=stderr(), "Searching for clinic id", paste0("df$",clinic_identifier), "column\n")
-      cat(file=stderr(), "Searching for date", paste0("df$",date_identifier), "column\n")
-      
-      #renames columns to standard clinic_id and Received_Week
-      df$clinic_id <- as.numeric(as.character(df[ , clinic_identifier]))
-      df$Received_Week <- as.Date(df[ , date_identifier], input$add_date_format)
-      df$weekday <- as.POSIXlt(df$Received_Week)$wday
-      
-      incProgress(0.1, detail = "Rounding to next Sunday")
-      df <- mutate(df, Received_Week = ifelse(weekday > 0 , Received_Week + (7-weekday), Received_Week))
-      df$Received_Week <- as.Date(df$Received_Week)
-      
-      incProgress(0.1, detail = "Calculating density")
-      df_grouped <- group_by(df, clinic_id, Received_Week)
-      df <- mutate(df_grouped, density = n())
-      df$density = as.integer(df$density)
-      
-      add_data <- distinct(df, clinic_id, Received_Week, .keep_all = TRUE)
-      add_data <- data.frame(add_data$clinic_id, add_data$Received_Week, add_data$density)
-      incProgress(0.1, detail = "Removing null rows")
-      add_data <- na.omit(add_data)
-      
-      add_data
-    })
-  })
   
   output$choose_clinic <- renderUI({
     # If missing input, return to avoid error later in function
@@ -787,71 +681,71 @@ server <- shinyServer(function(input, output) {
         
         # Filter for HCS, NPT, Direct 
         
-        incProgress(0.1, detail = "Filtering for HCS & NPT")
-        df <- filter(df, Product_Group == "HCS" | Product_Group == "NPT")
-        incProgress(0.1, detail = "Filtering for Direct sales")
-        df <- filter(df, Region_Group == "Direct")
+  #      incProgress(0.1, detail = "Filtering for HCS & NPT")
+  #      df <- filter(df, Product_Group == "HCS" | Product_Group == "NPT")
+  #      incProgress(0.1, detail = "Filtering for Direct sales")
+  #      df <- filter(df, Region_Group == "Direct")
         
         #Convert received week to date type and clinic id to integer
-        incProgress(0.1, detail = "Fixing types")
-        df$Received_Week = as.Date(df$Received_Week, format = "%m/%d/%y")
-        df$clinic_id = as.integer(as.character(df$clinic_id))
+  #      incProgress(0.1, detail = "Fixing types")
+  #      df$Received_Week = as.Date(df$Received_Week, format = "%m/%d/%y")
+  #      df$clinic_id = as.integer(as.character(df$clinic_id))
         
         #Remove dabblers dependent on position of slider
-        incProgress(0.1, detail = "Removing dabblers")
-        by_clinid <- group_by(df, clinic_id)
-        df <- mutate(by_clinid, total_days = max(Received_Week) - min(Received_Week))
-        by_clinid <- group_by(df, clinic_id)
-        df <- mutate(by_clinid, total_volume = n())
-        df$total_days = as.integer(df$total_days)
-        by_clinid <- group_by(df, clinic_id)
-        df <- mutate(by_clinid, volmo = ifelse(total_days > 30, total_volume/((total_days)/30+0.25), total_volume/(30+0.25)))
-        df <- filter(df, volmo > input$dabble)
+  #      incProgress(0.1, detail = "Removing dabblers")
+  #      by_clinid <- group_by(df, clinic_id)
+  #      df <- mutate(by_clinid, total_days = max(Received_Week) - min(Received_Week))
+  #      by_clinid <- group_by(df, clinic_id)
+  #      df <- mutate(by_clinid, total_volume = n())
+  #      df$total_days = as.integer(df$total_days)
+  #      by_clinid <- group_by(df, clinic_id)
+  #      df <- mutate(by_clinid, volmo = ifelse(total_days > 30, total_volume/((total_days)/30+0.25), total_volume/(30+0.25)))
+  #      df <- filter(df, volmo > input$dabble)
         
         # Calculate age, volume, cumvol, and status
         incProgress(0.1, detail = "Extracting Covariates")
-        by_clingroup <- group_by(df, clinic_id, Received_Week)
+        by_clingroup <- group_by(df, user_id)
         df <- mutate(by_clingroup, volume = n())
         df$volume = as.integer(df$volume)
-        by_clinid <- group_by(df, clinic_id)
-        df <- mutate(by_clinid, age = Received_Week - min(Received_Week))
+        by_clingroup <- group_by(df, user_id)
+        df <- mutate(by_clingroup, age = date_time - min(date_time))
         df$age = as.integer(df$age)
         by_clinid <- group_by(df, clinic_id)
-        df <- mutate(by_clinid, max_week = max(Received_Week)) 
+        df <- mutate(by_clinid, max_week = max(date_time)) 
         max_global_offset <- (max(df$max_week)-30)
-        by_clingroup <- group_by(df, clinic_id, Received_Week)
-        df <- mutate(by_clingroup, status = ifelse(Received_Week == max_week && Received_Week < max_global_offset , 1, 0))
-        data <- distinct(df, clinic_id, Received_Week, .keep_all = TRUE)
+        by_clingroup <- group_by(df, user_id, date_time)
+        df <- mutate(by_clingroup, status = ifelse(date_time == max_week && date_time < max_global_offset , 1, 0))
+        data <- distinct(df, user_id, date_time, .keep_all = TRUE)
         
-        incProgress(0.2, detail = "Adding extra metrics")
-        by_clinid <- group_by(data, clinic_id)
-        data <- mutate(by_clinid, cumvol = cumsum(volume))
-        # vol last 2/3/4 weeks
-        by_clinid <- group_by(data, clinic_id)
-        data <- mutate(by_clinid, dummy = 1)
-        by_clinid <- group_by(data, clinic_id)
-        data <- mutate(by_clinid, entry = cumsum(dummy))
-        by_clinid <- group_by(data, clinic_id)
-        data <- mutate(by_clinid, vol_4 = ifelse(entry>3, as.integer(roll_sumr(volume, 4)), as.integer(cumsum(volume))))
-        by_clinid <- group_by(data, clinic_id)
-        data <- mutate(by_clinid, vol_3 = ifelse(entry>2, as.integer(roll_sumr(volume, 3)), as.integer(cumsum(volume))))
-        by_clinid <- group_by(data, clinic_id)
-        data <- mutate(by_clinid, vol_2 = ifelse(entry>1, as.integer(roll_sumr(volume, 2)), as.integer(cumsum(volume))))
+#        incProgress(0.2, detail = "Adding extra metrics")
+#        by_clinid <- group_by(data, clinic_id)
+#        data <- mutate(by_clinid, cumvol = cumsum(volume))
+#        # vol last 2/3/4 weeks
+#        by_clinid <- group_by(data, clinic_id)
+#        data <- mutate(by_clinid, dummy = 1)
+#        by_clinid <- group_by(data, clinic_id)
+#        data <- mutate(by_clinid, entry = cumsum(dummy))
+#        by_clinid <- group_by(data, clinic_id)
+#        data <- mutate(by_clinid, vol_4 = ifelse(entry>3, as.integer(roll_sumr(volume, 4)), as.integer(cumsum(volume))))
+#        by_clinid <- group_by(data, clinic_id)
+#        data <- mutate(by_clinid, vol_3 = ifelse(entry>2, as.integer(roll_sumr(volume, 3)), as.integer(cumsum(volume))))
+#        by_clinid <- group_by(data, clinic_id)
+#        data <- mutate(by_clinid, vol_2 = ifelse(entry>1, as.integer(roll_sumr(volume, 2)), as.integer(cumsum(volume))))
         # dummy metrics for previous 2/3/4
-        by_clinid <- group_by(data, clinic_id)
-        data <- mutate(by_clinid, vol_6 = ifelse(entry>5, as.integer(roll_sumr(volume, 6)), as.integer(cumsum(volume))))
-        by_clinid <- group_by(data, clinic_id)
-        data <- mutate(by_clinid, vol_8 = ifelse(entry>7, as.integer(roll_sumr(volume, 8)), as.integer(cumsum(volume))))
+#        by_clinid <- group_by(data, clinic_id)
+#        data <- mutate(by_clinid, vol_6 = ifelse(entry>5, as.integer(roll_sumr(volume, 6)), as.integer(cumsum(volume))))
+#        by_clinid <- group_by(data, clinic_id)
+#        data <- mutate(by_clinid, vol_8 = ifelse(entry>7, as.integer(roll_sumr(volume, 8)), as.integer(cumsum(volume))))
         # prev 2, 3, 4
-        data <- mutate(data, prev_2 = vol_4 - vol_2)
-        data <- mutate(data, prev_3 = vol_6 - vol_3)
-        data <- mutate(data, prev_4 = vol_8 - vol_4)
+#        data <- mutate(data, prev_2 = vol_4 - vol_2)
+#        data <- mutate(data, prev_3 = vol_6 - vol_3)
+#        data <- mutate(data, prev_4 = vol_8 - vol_4)
         # current / prev
-        data <- mutate(data, diff_2 = ifelse(prev_2 == 0, 1, vol_2/prev_2))
-        data <- mutate(data, diff_3 = ifelse(prev_3 == 0, 1, vol_3/prev_3))
-        data <- mutate(data, diff_4 = ifelse(prev_4 == 0, 1, vol_4/prev_4))
+#        data <- mutate(data, diff_2 = ifelse(prev_2 == 0, 1, vol_2/prev_2))
+#        data <- mutate(data, diff_3 = ifelse(prev_3 == 0, 1, vol_3/prev_3))
+#        data <- mutate(data, diff_4 = ifelse(prev_4 == 0, 1, vol_4/prev_4))
         
-        incProgress(0.1, detail = "Checking for add. covariates")
+#        incProgress(0.1, detail = "Checking for add. covariates")
         
         cat(file=stderr(), "State of add_input (is null?):", is.null(input$add_input), "\n")
         if(!is.null(input$add_input)) {
