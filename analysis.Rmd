@@ -9,27 +9,28 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Introduction
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+We seek to use [OUTSIDE_DATA] to predict the propensity to book. In order, to measure such user behavior we consider a number of classification models and then use a validation procedure to select that one that performs most optimally. Then, we attempt to demonstrate the [OUTSIDE_DATA]'s importance to our model and explanatory power. 
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+## PCA
 
-```{r, results="hide"}
+Evidently, the dest.txt file contains valuable information in relation to characteristics unique to each destination. However, it is prudent to begin our analysis by shrinking the number of explanatory variables from 144 to a smaller number of principal components. 
+
+```{r, include=FALSE}
 load(file="dest_sub.RData")
 apply(dest_sub ,2,mean)
 apply(dest_sub, 2, var)
 ```
 
-## Including Plots
+## PC1 & PC2
 
-You can also embed plots, for example:
+Hence, we can visualize the first two orthogonal principal components:
 
-```{r}
+```{r, echo = FALSE}
 pca.out=prcomp(dest_sub, scale=TRUE)
 #pca.out
-names(pca.out)
+#names(pca.out)
 biplot(pca.out, scale=0)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
