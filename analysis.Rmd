@@ -7,6 +7,10 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(tibble)
+library(ggalt)
 ```
 
 ## Introduction
@@ -68,6 +72,3 @@ ggplot(pca_sub, aes(PC1, PC2, col=Species)) +
 
 ## Lat/Long
 
-```{r, ggplot2}
-ggplot(data_sub, aes(x=wt, y=mpg)) + geom_point()
-```
