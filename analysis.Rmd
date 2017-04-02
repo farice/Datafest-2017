@@ -77,7 +77,7 @@ d <- filter(dest,
   srch_destination_longitude >  72.805771 # Mumbai, India
 ) 
 
-dest <- mutate(dest, level = cut(srch_destination_latitude, breaks=c(-34,-13, 19, 20)))
+dest <- mutate(dest, level = cut(srch_destination_latitude, breaks=c(-34,-13, 19, 20), labels = c("Lima, Peru", "Sydney, Aus", "Mumbai, India")))
 
 df_pc <- data.frame(pca.out$x, Species = dest$level, dest$srch_destination_id)
 
