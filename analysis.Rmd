@@ -34,3 +34,8 @@ pca.out=prcomp(dest_sub, scale=TRUE)
 biplot(pca.out, scale=0)
 ```
 
+## Lat/Long
+
+```{r, ggplot2}
+ggplot(data_sub, aes(x=wt, y=mpg)) + geom_point()
+```
