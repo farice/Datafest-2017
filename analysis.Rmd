@@ -22,9 +22,23 @@ We seek to use [OUTSIDE_DATA] to predict the propensity to book. In order, to me
 Evidently, the dest.txt file contains valuable information in relation to characteristics unique to each destination. However, it is prudent to begin our analysis by shrinking the number of explanatory variables from 144 to a smaller number of principal components. 
 
 ```{r, include=FALSE}
+load(file="dest.RData")
 load(file="dest_sub.RData")
 apply(dest_sub ,2,mean)
 apply(dest_sub, 2, var)
+pcaCharts <- function(x) {
+    x.var <- x$sdev ^ 2
+    x.pvar <- x.var/sum(x.var)
+    print("proportions of variance:")
+    print(x.pvar)
+    
+    par(mfrow=c(2,2))
+    plot(x.pvar,xlab="Principal component", ylab="Proportion of variance explained", ylim=c(0,1), type='b')
+    plot(cumsum(x.pvar),xlab="Principal component", ylab="Cumulative Proportion of variance explained", ylim=c(0,1), type='b')
+    screeplot(x)
+    screeplot(x,type="l")
+    par(mfrow=c(1,1))
+}
 ```
 
 ## PC1 & PC2
@@ -42,15 +56,15 @@ rownames(dest_sub) <- dest_sub[,1]
 dest_sub <- dest_sub[,-1]
 dest_sub <- dest_sub[,-1]
 pca.out=prcomp(dest_sub, scale=TRUE)
-
+pcaCharts(pca.out)
 #pca.out
 #names(pca.out)
 #biplot(pca.out, scale=0)
 
 d <- filter(dest, srch_destination_id == 187693281 | srch_destination_id == 81374 | srch_destination_id == 187809593)
 df_pc <- data.frame(pca.out$x, Species=dest$srch_destination_id)
-df_pc <- rownames_to_column(df_pc, var = "id")
-pca_sub <- filter(df_pc, id ==187693281 | id == 81374 | id == 187809593)
+df_pc <- rownames_to_column(df_pc, var = "srch_destination_id")
+pca_sub <- filter(df_pc, srch_destination_id == 187693281 | srch_destination_id == 81374 | srch_destination_id == 187809593)
 df_pc_vir <- df_pc[df_pc$Species == 187693281, ]  # df for 'virginica'
 df_pc_set <- df_pc[df_pc$Species == 81374, ]  # df for 'setosa'
 df_pc_ver <- df_pc[df_pc$Species == 187809593, ]  # df for 'versicolor'
@@ -72,3 +86,10 @@ ggplot(pca_sub, aes(PC1, PC2, col=Species)) +
 
 ## Lat/Long
 
+
+```{r, ggplot2}
+load(file="int.RData")
+df_5 <- df_pc[c("srch_destination_id", "PC1", "PC2", "PC3", "PC4", "PC5")]
+int_datasub$srch_destination_id = as.character(int_datasub$srch_destination_id)
+int_comb <- left_join(int_datasub, df_5)
+```
