@@ -28,10 +28,42 @@ apply(dest_sub, 2, var)
 Hence, we can visualize the first two orthogonal principal components:
 
 ```{r, echo = FALSE}
+dest$srch_destination_latitude <- as.character(dest$srch_destination_latitude)
+dest$srch_destination_latitude <- as.numeric(dest$srch_destination_latitude)
+dest$srch_destination_longitude <- as.character(dest$srch_destination_longitude)
+dest$srch_destination_longitude <- as.numeric(dest$srch_destination_longitude)
+dest <- na.omit(dest)
+dest_sub <- dest[,-2]
+rownames(dest_sub) <- dest_sub[,1]
+dest_sub <- dest_sub[,-1]
+dest_sub <- dest_sub[,-1]
 pca.out=prcomp(dest_sub, scale=TRUE)
+
 #pca.out
 #names(pca.out)
-biplot(pca.out, scale=0)
+#biplot(pca.out, scale=0)
+
+d <- filter(dest, srch_destination_id == 187693281 | srch_destination_id == 81374 | srch_destination_id == 187809593)
+df_pc <- data.frame(pca.out$x, Species=dest$srch_destination_id)
+df_pc <- rownames_to_column(df_pc, var = "id")
+pca_sub <- filter(df_pc, id ==187693281 | id == 81374 | id == 187809593)
+df_pc_vir <- df_pc[df_pc$Species == 187693281, ]  # df for 'virginica'
+df_pc_set <- df_pc[df_pc$Species == 81374, ]  # df for 'setosa'
+df_pc_ver <- df_pc[df_pc$Species == 187809593, ]  # df for 'versicolor'
+
+ggplot(pca_sub, aes(PC1, PC2, col=Species)) + 
+  geom_point(aes(shape=Species), size=2) +
+  scale_shape_identity() +   # draw points
+  labs(title="Iris Clustering", 
+       subtitle="With principal components PC1 and PC2 as X and Y axis",
+       caption="Source: Iris") + 
+  coord_cartesian(xlim = 1.2 * c(min(pca_sub$PC1), max(pca_sub$PC1)), 
+                  ylim = 1.2 * c(min(pca_sub$PC2), max(pca_sub$PC2))) +   # change axis limits
+  geom_encircle(data = df_pc_vir, aes(x=PC1, y=PC2)) +   # draw circles
+  geom_encircle(data = df_pc_set, aes(x=PC1, y=PC2)) + 
+  geom_encircle(data = df_pc_ver, aes(x=PC1, y=PC2))
+
+#pca_select <- 
 ```
 
 ## Lat/Long
