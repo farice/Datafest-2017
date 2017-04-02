@@ -11,6 +11,7 @@ library(dplyr)
 library(ggplot2)
 library(tibble)
 library(ggalt)
+library(ggRandomForests)
 ```
 
 ## Introduction
@@ -123,3 +124,39 @@ load(file = "ling.RData")
 int_comb <- left_join(int_comb, ling)
 
 ```
+
+## Random Forest 
+
+```{r}
+int_comb$is_booking <- as.factor(int_comb$is_booking)
+int_comb$is_mobile <- as.factor(int_comb$is_mobile)
+int_comb$is_package <- as.factor(int_comb$is_package)
+int_comb$prop_is_branded <- as.factor(int_comb$prop_is_branded)
+int_comb$prop_starrating <- as.factor(int_comb$prop_starrating)
+int_comb$bookMobile <- as.factor(int_comb$bookMobile)
+
+int_comb$orig_destination_distance <- as.character(int_comb$orig_destination_distance)
+int_comb$orig_destination_distance <- as.numeric(int_comb$orig_destination_distance)
+int_comb$user_location_latitude <- as.character(int_comb$user_location_latitude)
+int_comb$user_location_latitude <- as.numeric(int_comb$user_location_latitude)
+int_comb$user_location_longitude <- as.character(int_comb$user_location_longitude)
+int_comb$user_location_longitude  <- as.numeric(int_comb$user_location_longitude )
+
+rf <- rfsrc(formula = is_booking ~ PC1 + PC2 + PC3 + PC4 + PC5 + word_simplicity + user_location_latitude + user_location_longitude + orig_destination_distance + is_mobile + is_package + channel + srch_adults_cnt + srch_children_cnt + srch_rm_cnt + hotel_country + prop_is_branded + prop_starrating + distance_band + hist_price_band + popularity_band + cnt + bookMobile, data = int_comb, family = class, tree.err = TRUE, importance = TRUE)
+```
+
+Plots 
+
+```{r}
+plot(rf)
+    
+```
+## Network
+
+```
+install.packages('igraph')
+install.packages('network') 
+install.packages('sna')
+install.packages('ndtv')
+install.packages('visNetwork')
+ ```
