@@ -119,5 +119,7 @@ df_5 <- df_pc[c("srch_destination_id", "PC1", "PC2", "PC3", "PC4", "PC5")]
 int_datasub$srch_destination_id = as.character(int_datasub$srch_destination_id)
 int_comb <- left_join(int_datasub, df_5)
 
+load(file = "ling.RData")
+int_comb <- left_join(int_comb, ling)
 
 ```
