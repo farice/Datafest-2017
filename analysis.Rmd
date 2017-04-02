@@ -77,9 +77,11 @@ d <- filter(dest,
   srch_destination_longitude >  72.805771 # Mumbai, India
 ) 
 
-df_pc <- data.frame(pca.out$x, Species = dest$srch_destination_latitude)
+dest <- mutate(dest, level = cut(srch_destination_latitude, breaks=c(-34,-13, 19, 20)))
 
-df_pc <- rownames_to_column(df_pc, var = "srch_destination_lat")
+df_pc <- data.frame(pca.out$x, Species = dest$level, dest$srch_destination_id)
+
+df_pc <- rownames_to_column(df_pc, var = "srch_destination_id")
 
 pca_sub <- filter(df_pc, 
  dest$srch_destination_latitude <= -11.876272 & dest$srch_destination_latitude >= -12.109458
@@ -97,7 +99,7 @@ df_pc_ver <- filter(df_pc, dest$srch_destination_latitude <= -33.850076 & dest$s
 ggplot(pca_sub, aes(PC1, PC2, col=Species)) + 
   geom_point(aes(shape=Species), size=2) +
   scale_shape_identity() +   # draw points
-  labs(title="Iris Clustering", 
+  labs(title="Region Clustering", 
        subtitle="With principal components PC1 and PC2 as X and Y axis",
        caption="Source: Iris") + 
   coord_cartesian(xlim = 1.2 * c(min(pca_sub$PC1), max(pca_sub$PC1)), 
