@@ -155,13 +155,20 @@ plot(rf,plots.one.page = FALSE)
 ```
 ## Network
 
-```
+```{r}
 library(igraph)
 library(network) 
 library(sna)
 library(ndtv)
 library(visNetwork)
 
-net <- graph_from_data_frame(d=links, vertices=nodes, directed=T) 
+tiny_tiny <- tiny %>% sample_frac(0.1)
+links = tiny_tiny[c("user_location_region", "hotel_country", "word_simplicity")]
+net <- graph_from_data_frame(d=links, directed=T) 
+edge.start <- ends(net, es=E(net), names=F)[,1]
+edge.col <- V(net)$word_simplicity[edge.start]
+plot(net, vertex.size=8, vertex.color = E(net)$word_simplicity,
+vertex.label.color = "black", vertex.label.cex = 0.4, vertex.label.degree = -pi/2,
+edge.arrow.size = 0.3, edge.arrow.width = 0.4, edge.color = "black")
 
- ```
+```
