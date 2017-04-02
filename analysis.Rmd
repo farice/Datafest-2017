@@ -45,7 +45,7 @@ pcaCharts <- function(x) {
 
 Hence, we can visualize the first two orthogonal principal components:
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, dplyr}
 dest$srch_destination_latitude <- as.character(dest$srch_destination_latitude)
 dest$srch_destination_latitude <- as.numeric(dest$srch_destination_latitude)
 dest$srch_destination_longitude <- as.character(dest$srch_destination_longitude)
@@ -85,7 +85,6 @@ ggplot(pca_sub, aes(PC1, PC2, col=Species)) +
 ```
 
 ## Lat/Long
-
 
 ```{r, ggplot2}
 load(file="int.RData")
